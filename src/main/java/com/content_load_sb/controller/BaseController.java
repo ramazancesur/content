@@ -1,0 +1,123 @@
+package com.content_load_sb.controller;
+
+import com.content_load_sb.dbops.BaseEntity;
+import com.content_load_sb.dbops.interfaces.IGenericService;
+import com.content_load_sb.utils.DefaultExceptionAttributes;
+import com.content_load_sb.utils.ExceptionAttributes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.PathVariable;
+
+import javax.persistence.NoResultException;
+import javax.servlet.http.HttpServletRequest;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Created by asd on 17.11.2017.
+ */
+public abstract class BaseController<T extends BaseEntity> implements BController<T> {
+    /**
+     * The Logger for this class.
+     */
+    protected Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    @Autowired
+    private IGenericService<T, Long> service;
+
+    /**
+     * Handles JPA NoResultExceptions thrown from web service controller
+     * methods. Creates a response with Exception Attributes as JSON and HTTP
+     * status code 404, not found.
+     *
+     * @param noResultException A NoResultException instance.
+     * @param request           The HttpServletRequest in which the NoResultException was
+     *                          raised.
+     * @return A ResponseEntity containing the Exception Attributes in the body
+     * and HTTP status code 404.
+     */
+    @ExceptionHandler(NoResultException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResultException(NoResultException noResultException,
+                                                                       HttpServletRequest request) {
+
+        logger.info("> handleNoResultException");
+
+        ExceptionAttributes exceptionAttributes = new DefaultExceptionAttributes();
+
+        Map<String, Object> responseBody = exceptionAttributes.getExceptionAttributes(noResultException, request,
+                HttpStatus.NOT_FOUND);
+
+        logger.info("< handleNoResultException");
+        return new ResponseEntity<Map<String, Object>>(responseBody, HttpStatus.NOT_FOUND);
+    }
+
+    /**
+     * Handles all Exceptions not addressed by more specific
+     * <code>@ExceptionHandler</code> methods. Creates a response with the
+     * Exception Attributes in the response body as JSON and a HTTP status code
+     * of 500, internal server error.
+     *
+     * @param exception An Exception instance.
+     * @param request   The HttpServletRequest in which the Exception was raised.
+     * @return A ResponseEntity containing the Exception Attributes in the body
+     * and a HTTP status code 500.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleException(Exception exception, HttpServletRequest request) {
+
+        logger.error("> handleException");
+        logger.error("- Exception: ", exception);
+
+        ExceptionAttributes exceptionAttributes = new DefaultExceptionAttributes();
+
+        Map<String, Object> responseBody = exceptionAttributes.getExceptionAttributes(exception, request,
+                HttpStatus.INTERNAL_SERVER_ERROR);
+
+        logger.error("< handleException");
+        return new ResponseEntity<Map<String, Object>>(responseBody, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+
+    @Override
+    public ResponseEntity<List<T>> getAll() {
+        List<T> lstData = service.getAll();
+        return new ResponseEntity<List<T>>(lstData, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<T> getDataById(@PathVariable("id") Long id) {
+        T data = service.get(id);
+        return new ResponseEntity<T>(data, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Boolean> addData(T data) {
+        boolean result = service.add(data);
+        if (!result) {
+            return new ResponseEntity<Boolean>(result, HttpStatus.EXPECTATION_FAILED);
+        }
+        return new ResponseEntity<Boolean>(result, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Boolean> updateData(T data) {
+        boolean result = service.update(data);
+        if (!result) {
+            return new ResponseEntity<Boolean>(result, HttpStatus.EXPECTATION_FAILED);
+        }
+        return new ResponseEntity<Boolean>(result, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Boolean> deleteData(T data) {
+        boolean result = service.remove(data);
+        if (!result) {
+            return new ResponseEntity<Boolean>(result, HttpStatus.EXPECTATION_FAILED);
+        }
+        return new ResponseEntity<Boolean>(result, HttpStatus.OK);
+    }
+}
